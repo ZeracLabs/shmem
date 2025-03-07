@@ -1,6 +1,13 @@
 //! A thin wrapper around shared memory system calls
 //!
 //! For help on how to get started, take a look at the [examples](https://github.com/elast0ny/shared_memory-rs/tree/master/examples) !
+#[cfg(not(any(
+    target_os = "freebsd",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "windows"
+)))]
+compile_error!("shared_memory isnt implemented for this platform...");
 
 use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
@@ -8,41 +15,37 @@ use std::io::{ErrorKind, Read, Write};
 use std::fs::remove_file;
 use std::path::{Path, PathBuf};
 
-use cfg_if::cfg_if;
-
-cfg_if! {
-    if #[cfg(feature = "logging")] {
-        pub use log;
-    } else {
-        #[allow(unused_macros)]
-        mod log {
-            macro_rules! trace (($($tt:tt)*) => {{}});
-            macro_rules! debug (($($tt:tt)*) => {{}});
-            macro_rules! info (($($tt:tt)*) => {{}});
-            macro_rules! warn (($($tt:tt)*) => {{}});
-            macro_rules! error (($($tt:tt)*) => {{}});
-            pub(crate) use {debug, trace};
-        }
-    }
-}
-
-use crate::log::*;
-
 mod error;
 pub use error::*;
 
-//Load up the proper OS implementation
-cfg_if! {
-    if #[cfg(target_os="windows")] {
-        mod windows;
-        use windows as os_impl;
-    } else if #[cfg(any(target_os="freebsd", target_os="linux", target_os="macos"))] {
-        mod unix;
-        use crate::unix as os_impl;
-    } else {
-        compile_error!("shared_memory isnt implemented for this platform...");
-    }
-}
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+use windows as os_impl;
+
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
+mod unix;
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
+use crate::unix as os_impl;
+
+#[cfg(feature = "tracing")]
+pub(crate) use tracing::*;
+
+#[cfg(not(feature = "tracing"))]
+#[cfg_attr(not(feature = "tracing"), macro_export)]
+macro_rules! trace (($($tt:tt)*) => {{}});
+#[cfg(not(feature = "tracing"))]
+#[cfg_attr(not(feature = "tracing"), macro_export)]
+macro_rules! debug (($($tt:tt)*) => {{}});
+#[cfg(not(feature = "tracing"))]
+#[cfg_attr(not(feature = "tracing"), macro_export)]
+macro_rules! info (($($tt:tt)*) => {{}});
+#[cfg(not(feature = "tracing"))]
+#[cfg_attr(not(feature = "tracing"), macro_export)]
+macro_rules! warn (($($tt:tt)*) => {{}});
+#[cfg(not(feature = "tracing"))]
+#[cfg_attr(not(feature = "tracing"), macro_export)]
+macro_rules! error (($($tt:tt)*) => {{}});
 
 #[derive(Clone, Default)]
 /// Struct used to configure different parameters before creating a shared memory mapping
@@ -73,8 +76,8 @@ impl ShmemConf {
     }
     /// Provide a specific os identifier for the mapping
     ///
-    /// When not specified, a randomly generated identifier will be used
-    pub fn os_id<S: AsRef<str>>(mut self, os_id: S) -> Self {
+    /// When not specified, get the current pid
+    pub fn id<S: AsRef<str>>(mut self, os_id: S) -> Self {
         self.os_id = Some(String::from(os_id.as_ref()));
         self
     }
@@ -114,19 +117,16 @@ impl ShmemConf {
 
         // Create the mapping
         let mapping = match self.os_id {
-            None => {
-                // Generate random ID until one works
-                loop {
-                    let cur_id = format!("/shmem_{:X}", rand::random::<u64>());
-                    match os_impl::create_mapping(&cur_id, self.size) {
-                        Err(ShmemError::MappingIdExists) => continue,
-                        Ok(m) => break m,
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                }
-            }
+            None => loop {
+                let cur_id = format!("/shmem_{:X}", std::process::id());
+                match os_impl::create_mapping(&cur_id, self.size) {
+                    Err(ShmemError::MappingIdExists) => continue,
+                    Ok(m) => break m,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+            },
             Some(ref specific_id) => os_impl::create_mapping(specific_id, self.size)?,
         };
         debug!("Created shared memory mapping '{}'", mapping.unique_id);

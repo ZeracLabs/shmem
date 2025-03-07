@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
 use std::path::PathBuf;
 
-use crate::{log::*, ShmemConf};
+use crate::{debug, trace, ShmemConf};
 use win_sys::*;
 
 use crate::ShmemError;
