@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 
 use clap::Parser;
-use raw_sync::locks::*;
 use shared_memory::*;
 
 /// Spawns N threads that increment a value to 10 using a mutex
@@ -18,7 +17,6 @@ struct Args {
 }
 
 fn main() {
-    env_logger::init();
     let args = Args::parse();
 
     if args.num_threads < 1 {

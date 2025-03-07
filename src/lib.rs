@@ -16,7 +16,11 @@ use std::fs::remove_file;
 use std::path::{Path, PathBuf};
 
 mod error;
+mod event;
+mod locks;
+
 pub use error::*;
+pub use event::*;
 
 #[cfg(target_os = "windows")]
 mod windows;
@@ -29,7 +33,7 @@ mod unix;
 use crate::unix as os_impl;
 
 #[cfg(feature = "tracing")]
-pub(crate) use tracing::*;
+pub(crate) use tracing::{debug, trace};
 
 #[cfg(not(feature = "tracing"))]
 #[cfg_attr(not(feature = "tracing"), macro_export)]
@@ -104,7 +108,7 @@ impl ShmemConf {
     }
 
     /// Create a new mapping using the current configuration
-    pub fn create(mut self) -> Result<Shmem, ShmemError> {
+    pub fn create(mut self) -> Result<Shmem> {
         if self.size == 0 {
             return Err(ShmemError::MapSizeZero);
         }
@@ -174,7 +178,7 @@ impl ShmemConf {
     }
 
     /// Opens an existing mapping using the current configuration
-    pub fn open(mut self) -> Result<Shmem, ShmemError> {
+    pub fn open(mut self) -> Result<Shmem> {
         // Must at least have a flink or an os_id
         if self.flink_path.is_none() && self.os_id.is_none() {
             debug!("Open called with no file link or unique id...");

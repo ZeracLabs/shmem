@@ -1,3 +1,5 @@
+pub type Result<T> = std::result::Result<T, ShmemError>;
+
 #[derive(Debug)]
 pub enum ShmemError {
     MapSizeZero,
@@ -13,6 +15,7 @@ pub enum ShmemError {
     MapCreateFailed(u32),
     MapOpenFailed(u32),
     UnknownOsError(u32),
+    Unknown(String),
 }
 
 impl std::fmt::Display for ShmemError {
@@ -31,6 +34,7 @@ impl std::fmt::Display for ShmemError {
             ShmemError::MapCreateFailed(err) => write!(f, "Creating the shared memory failed, os error {err}"),
             ShmemError::MapOpenFailed(err) => write!(f, "Opening the shared memory failed, os error {err}"),
             ShmemError::UnknownOsError(err) => write!(f, "An unexpected OS error occurred, os error {err}"),
+            ShmemError::Unknown(err) => write!(f, "{err}"),
         }
     }
 }
@@ -44,5 +48,17 @@ impl std::error::Error for ShmemError {
             ShmemError::LinkReadFailed(err) => Some(err),
             _ => None,
         }
+    }
+}
+
+impl From<String> for ShmemError {
+    fn from(value: String) -> Self {
+        Self::Unknown(value)
+    }
+}
+
+impl<'a> From<&'a str> for ShmemError {
+    fn from(value: &'a str) -> Self {
+        Self::Unknown(value.to_string())
     }
 }

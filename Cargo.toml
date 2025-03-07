@@ -33,6 +33,4 @@ libc = "0.2"
 win-sys = "0.3"
 
 [dev-dependencies]
-raw_sync = "0.1"
 clap = { version = "4", features = ["derive"] }
-env_logger = "0"

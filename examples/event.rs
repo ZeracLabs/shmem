@@ -1,8 +1,6 @@
-use raw_sync::{events::*, Timeout};
 use shared_memory::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     // Attempt to create a mapping or open if it already exists
     println!("Getting the shared memory mapping");
     let shmem = match ShmemConf::new().size(4096).flink("event_mapping").create() {

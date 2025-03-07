@@ -16,7 +16,6 @@ struct Args {
 }
 
 fn main() {
-    env_logger::init();
     let args = Args::parse();
 
     if args.num_threads < 1 {
