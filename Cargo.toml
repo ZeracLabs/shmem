@@ -31,6 +31,8 @@ libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 win-sys = "0.3"
+rand = "0.8"
+winapi = { version = "0.3", features = ["winnt", "winbase", "winerror", "ntdef", "synchapi", "handleapi"] }
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
