@@ -5,7 +5,7 @@ use std::ptr::NonNull;
 
 use nix::fcntl::OFlag;
 use nix::sys::mman::{mmap, munmap, shm_open, shm_unlink, MapFlags, ProtFlags};
-use nix::sys::stat::{fstat, Mode};
+use nix::sys::stat::{fchmod, fstat, Mode};
 use nix::unistd::{close, ftruncate};
 
 use crate::ShmemError;
@@ -89,13 +89,13 @@ pub fn create_mapping(unique_id: &str, map_size: usize) -> Result<MapData, Shmem
     let shmem_fd = match shm_open(
         unique_id, //Unique name that usualy pops up in /dev/shm/
         OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR, //create exclusively (error if collision) and read/write to allow resize
-        Mode::S_IRUSR | Mode::S_IWUSR,                  //Permission allow user+rw
+        Mode::S_IRWXU | Mode::S_IRWXG | Mode::S_IRWXO,  //Permission allow user+rw
     ) {
         Ok(v) => {
             trace!(
                 "shm_open({unique_id}, {:X}, {:X}) == {v:?}",
                 OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR,
-                Mode::S_IRUSR | Mode::S_IWUSR,
+                Mode::S_IRWXU | Mode::S_IRWXG | Mode::S_IRWXO,
             );
             v
         }
@@ -117,6 +117,17 @@ pub fn create_mapping(unique_id: &str, map_size: usize) -> Result<MapData, Shmem
     match ftruncate(&new_map.map_fd, new_map.map_size as _) {
         Ok(_) => {}
         Err(e) => return Err(ShmemError::UnknownOsError(e as u32)),
+    };
+
+    #[cfg(target_os = "linux")]
+    if let Err(e) = {
+        fchmod(
+            new_map.map_fd.as_raw_fd(),
+            Mode::S_IRWXU | Mode::S_IRWXG | Mode::S_IRWXO,
+        )
+    } {
+        tracing::error!("fchmod: {e}");
+        return Err(ShmemError::UnknownOsError(e as _));
     };
 
     //Put the mapping in our address space
@@ -159,13 +170,13 @@ pub fn open_mapping(
     let shmem_fd = match shm_open(
         unique_id,
         OFlag::O_RDWR, //Open read write
-        Mode::S_IRUSR,
+        Mode::S_IRWXU | Mode::S_IRWXG | Mode::S_IRWXO,
     ) {
         Ok(v) => {
             trace!(
                 "shm_open({unique_id}, {:X}, {:X}) == {v:?}",
                 OFlag::O_RDWR,
-                Mode::S_IRUSR,
+                Mode::S_IRWXU | Mode::S_IRWXG | Mode::S_IRWXO,
             );
             v
         }

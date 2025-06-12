@@ -147,6 +147,12 @@ impl ShmemConf {
                 open_options.create_new(true);
             }
 
+            #[cfg(target_os = "linux")]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                open_options.custom_flags((libc::S_IRWXU | libc::S_IRWXG | libc::S_IRWXO) as i32);
+            }
+
             match open_options.open(flink_path) {
                 Ok(mut f) => {
                     // write the shmem uid asap
